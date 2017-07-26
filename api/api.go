@@ -19,6 +19,7 @@ func main() {
   flag.Parse()
   r := mux.NewRouter()
   r.HandleFunc("/health", health)
+  r.HandleFunc("/", health)
   http.Handle("/", r)
   fmt.Println("Starting up on port " + port)
   log.Fatal(http.ListenAndServe(":"+port, nil))
