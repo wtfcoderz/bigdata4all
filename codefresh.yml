@@ -8,7 +8,7 @@ steps:
 
   push:
     type: push
-    candidate: build
+    candidate: ${{build}}
     registry: dockerhub
     when:
       branch:
