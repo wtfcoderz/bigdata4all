@@ -2,55 +2,55 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"flag"
 	"fmt"
-	"math/rand"
+	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
+	"io/ioutil"
 	"log"
-	"time"
+	"math/rand"
 	"net/http"
 	"net/smtp"
 	"os"
-	"github.com/go-redis/redis"
-//	"gopkg.in/gomail.v2"
+	"time"
+	//	"gopkg.in/gomail.v2"
 )
 
 type jsonUserRegister struct {
-	Email string `json:"email"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type basicResponse struct {
 	Result string `json:"result"`
-	Msg string `json:"msg"`
+	Msg    string `json:"msg"`
 }
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const (
-    letterIdxBits = 6                    // 6 bits to represent a letter index
-    letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-    letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
 var src = rand.NewSource(time.Now().UnixNano())
 
-func RandStringBytesMaskImprSrc(n int) string {
-    b := make([]byte, n)
-    // A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-    for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-        if remain == 0 {
-            cache, remain = src.Int63(), letterIdxMax
-        }
-        if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-            b[i] = letterBytes[idx]
-            i--
-        }
-        cache >>= letterIdxBits
-        remain--
-    }
+func randStringBytesMaskImprSrc(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
 
-    return string(b)
+	return string(b)
 }
 
 var port string
@@ -65,9 +65,9 @@ func main() {
 
 	// Init DB
 	redisDB = redis.NewClient(&redis.Options{
-		Addr:		"redis:6379",
-		Password:	"",
-		DB:		0,
+		Addr:     "redis:6379",
+		Password: "",
+		DB:       0,
 	})
 
 	// Mux Router
@@ -102,11 +102,11 @@ func handleUserRegister(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("user already exists", val2)
 	}
 
-	token := RandStringBytesMaskImprSrc(64)
+	token := randStringBytesMaskImprSrc(64)
 	sendMailValidator(userRegister.Email, token)
 
 	// Insert redis
-	err = redisDB.Set("user:" + userRegister.Email, token, 0).Err()
+	err = redisDB.Set("user:"+userRegister.Email, token, 0).Err()
 	if err != nil {
 		panic(err)
 	}
@@ -114,11 +114,11 @@ func handleUserRegister(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("user:" + userRegister.Email, val)
+	fmt.Println("user:"+userRegister.Email, val)
 
 	response := basicResponse{
 		Result: "success",
-		Msg: "You must validate your account, check your emails",
+		Msg:    "You must validate your account, check your emails",
 	}
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
@@ -138,7 +138,7 @@ func sendMailValidator(to string, token string) {
 		"Subject: Hello there\n\n" +
 		body
 
-	err := smtp.SendMail(os.Getenv("SMTP_SERVER") + ":" + os.Getenv("SMTP_PORT"),
+	err := smtp.SendMail(os.Getenv("SMTP_SERVER")+":"+os.Getenv("SMTP_PORT"),
 		smtp.PlainAuth("", user, pass, os.Getenv("SMTP_SERVER")),
 		from, []string{to}, []byte(msg))
 
@@ -147,4 +147,3 @@ func sendMailValidator(to string, token string) {
 		return
 	}
 }
-
