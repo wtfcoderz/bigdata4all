@@ -18,3 +18,7 @@ steps:
   deploy:
     type: launch-composition
     composition: 'bigdata4all'
+    when:
+      branch:
+        only:
+          - master
