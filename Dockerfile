@@ -2,7 +2,10 @@ FROM	golang:1.8 as build
 WORKDIR	/go/src
 ENV	CGO_ENABLED=0
 ENV	GO_PATH=/go/src
-RUN	go get github.com/gorilla/mux github.com/go-redis/redis
+RUN	go get \
+		github.com/gorilla/mux \
+		github.com/go-redis/redis \
+		golang.org/x/crypto/bcrypt
 COPY	api /go/src
 RUN	go build -a --installsuffix cgo --ldflags=-s -o bigdata4all
 

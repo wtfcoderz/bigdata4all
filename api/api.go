@@ -6,17 +6,14 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
-	"net/smtp"
 	"os"
-	"time"
-	//	"gopkg.in/gomail.v2"
 )
 
-type jsonUserRegister struct {
+type jsonUser struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -24,33 +21,6 @@ type jsonUserRegister struct {
 type basicResponse struct {
 	Result string `json:"result"`
 	Msg    string `json:"msg"`
-}
-
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const (
-	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-)
-
-var src = rand.NewSource(time.Now().UnixNano())
-
-func randStringBytesMaskImprSrc(n int) string {
-	b := make([]byte, n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			b[i] = letterBytes[idx]
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return string(b)
 }
 
 var port string
@@ -73,6 +43,7 @@ func main() {
 	// Mux Router
 	r := mux.NewRouter()
 	r.HandleFunc("/user/register", handleUserRegister).Methods("Post")
+	r.HandleFunc("/user/auth", handleUserAuth).Methods("Post")
 	r.HandleFunc("/health", health)
 	r.HandleFunc("/", health)
 	http.Handle("/", r)
@@ -89,37 +60,47 @@ func health(w http.ResponseWriter, req *http.Request) {
 
 func handleUserRegister(w http.ResponseWriter, req *http.Request) {
 	bodyb, _ := ioutil.ReadAll(req.Body)
-	var userRegister jsonUserRegister
-	_ = json.Unmarshal(bodyb, &userRegister)
+	var user jsonUser
+	_ = json.Unmarshal(bodyb, &user)
+
+	var response basicResponse
 
 	// Verify user
-	val2, err := redisDB.Get("user:" + userRegister.Email).Result()
+	_, err := redisDB.Get("user:" + user.Email).Result()
 	if err == redis.Nil {
-		fmt.Println("user does not exists")
+		// User not present in DB
+		token := randStringBytesMaskImprSrc(64)
+		// Insert redis
+		err = redisDB.Set("user:"+user.Email, token, 0).Err()
+		if err != nil {
+			panic(err)
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			panic(err)
+		}
+		err = redisDB.Set("user:"+user.Email+":password", hash, 0).Err()
+		if err != nil {
+			panic(err)
+		}
+		// Send email
+		sendMailValidator(user.Email, token)
+		// Set response
+		response = basicResponse{
+			Result: "success",
+			Msg:    "You must validate your account, check your emails",
+		}
 	} else if err != nil {
 		panic(err)
 	} else {
-		fmt.Println("user already exists", val2)
+		// User already present in DB
+		response = basicResponse{
+			Result: "failure",
+			Msg:    "User already exists in database",
+		}
 	}
 
-	token := randStringBytesMaskImprSrc(64)
-	sendMailValidator(userRegister.Email, token)
-
-	// Insert redis
-	err = redisDB.Set("user:"+userRegister.Email, token, 0).Err()
-	if err != nil {
-		panic(err)
-	}
-	val, err := redisDB.Get("user:" + userRegister.Email).Result()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("user:"+userRegister.Email, val)
-
-	response := basicResponse{
-		Result: "success",
-		Msg:    "You must validate your account, check your emails",
-	}
+	// Send response
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
 		log.Fatalln(err)
@@ -127,23 +108,42 @@ func handleUserRegister(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, string(jsonResponse))
 }
 
-func sendMailValidator(to string, token string) {
-	user := os.Getenv("SMTP_USER")
-	pass := os.Getenv("SMTP_PASSWORD")
-	from := "contact@bigdata4all.io"
-	body := token
+func handleUserAuth(w http.ResponseWriter, req *http.Request) {
+	bodyb, _ := ioutil.ReadAll(req.Body)
+	var user jsonUser
+	_ = json.Unmarshal(bodyb, &user)
+	var response basicResponse
 
-	msg := "From: " + from + "\n" +
-		"To: " + to + "\n" +
-		"Subject: Hello there\n\n" +
-		body
-
-	err := smtp.SendMail(os.Getenv("SMTP_SERVER")+":"+os.Getenv("SMTP_PORT"),
-		smtp.PlainAuth("", user, pass, os.Getenv("SMTP_SERVER")),
-		from, []string{to}, []byte(msg))
-
-	if err != nil {
-		log.Printf("smtp error: %s", err)
-		return
+	hash, err := redisDB.Get("user:" + user.Email + ":password").Result()
+	if err == redis.Nil {
+		// user doesn't exists
+		response = basicResponse{
+			Result: "failure",
+			Msg:    "Invalid credentials",
+		}
+	} else if err != nil {
+		panic(err)
+	} else {
+		// user exists, check password
+		if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(user.Password)); err != nil {
+			// Bad password
+			response = basicResponse{
+				Result: "failure",
+				Msg:    "Invalid credentials",
+			}
+		} else {
+			// Good password
+			response = basicResponse{
+				Result: "sucess",
+				Msg:    "Feel free to use token",
+			}
+		}
 	}
+
+	// Send response
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fmt.Fprintln(w, string(jsonResponse))
 }
