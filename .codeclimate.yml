@@ -7,5 +7,6 @@ engines:
   golint:
     enabled: true
 ratings:
-  paths: []
+  paths:
+   - "api/*.go"
 exclude_paths: []
