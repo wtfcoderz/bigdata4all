@@ -143,34 +143,20 @@ func handleData(w http.ResponseWriter, req *http.Request) {
 }
 
 func handleUserAuth(w http.ResponseWriter, req *http.Request) {
-	bodyb, _ := ioutil.ReadAll(req.Body)
-	var user jsonUser
-	_ = json.Unmarshal(bodyb, &user)
 	var response basicResponse
 
-	hash, err := redisDB.Get("user:" + user.Email + ":password").Result()
-	if err == redis.Nil {
-		// user doesn't exists
-		response = basicResponse{
-			Result: "failure",
-			Msg:    "Invalid credentials",
-		}
-	} else if err != nil {
-		panic(err)
-	} else {
-		// user exists, check password
-		if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(user.Password)); err != nil {
-			// Bad password
-			response = basicResponse{
-				Result: "failure",
-				Msg:    "Invalid credentials",
-			}
-		} else {
-			// Good password
+	// If token, refresh it and send response
+	reqToken := req.Header.Get("X-Bigdata4all-Token")
+	if reqToken != "" {
+		token, err := jwt.Parse(reqToken, func(t *jwt.Token) (interface{}, error) {
+			return []byte(secretKey), nil
+		})
+		if err == nil && token.Valid {
+			email := token.Claims.(jwt.MapClaims)["user"]
 			// Create JWT token
-			token := jwt.New(jwt.GetSigningMethod("HS256"))
+			token = jwt.New(jwt.GetSigningMethod("HS256"))
 			claims := make(jwt.MapClaims)
-			claims["user"] = user.Email
+			claims["user"] = email
 			claims["exp"] = time.Now().Add(time.Minute * 3600).Unix()
 			token.Claims = claims
 			tokenString, err := token.SignedString([]byte(secretKey))
@@ -179,8 +165,57 @@ func handleUserAuth(w http.ResponseWriter, req *http.Request) {
 			}
 			w.Header().Set("X-Bigdata4all-Token", tokenString)
 			response = basicResponse{
-				Result: "sucess",
+				Result: "success",
 				Msg:    "Feel free to use token",
+			}
+
+		} else {
+			response = basicResponse{
+				Result: "failure",
+				Msg:    "Invalid token",
+			}
+		}
+
+	} else {
+
+		bodyb, _ := ioutil.ReadAll(req.Body)
+		var user jsonUser
+		_ = json.Unmarshal(bodyb, &user)
+
+		hash, err := redisDB.Get("user:" + user.Email + ":password").Result()
+		if err == redis.Nil {
+			// user doesn't exists
+			response = basicResponse{
+				Result: "failure",
+				Msg:    "Invalid credentials",
+			}
+		} else if err != nil {
+			panic(err)
+		} else {
+			// user exists, check password
+			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(user.Password)); err != nil {
+				// Bad password
+				response = basicResponse{
+					Result: "failure",
+					Msg:    "Invalid credentials",
+				}
+			} else {
+				// Good password
+				// Create JWT token
+				token := jwt.New(jwt.GetSigningMethod("HS256"))
+				claims := make(jwt.MapClaims)
+				claims["user"] = user.Email
+				claims["exp"] = time.Now().Add(time.Minute * 3600).Unix()
+				token.Claims = claims
+				tokenString, err := token.SignedString([]byte(secretKey))
+				if err != nil {
+					panic(err)
+				}
+				w.Header().Set("X-Bigdata4all-Token", tokenString)
+				response = basicResponse{
+					Result: "success",
+					Msg:    "Feel free to use token",
+				}
 			}
 		}
 	}
