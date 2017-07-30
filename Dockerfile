@@ -5,7 +5,9 @@ ENV	GO_PATH=/go/src
 RUN	go get \
 		github.com/gorilla/mux \
 		github.com/go-redis/redis \
-		golang.org/x/crypto/bcrypt
+		golang.org/x/crypto/bcrypt \
+		github.com/dgrijalva/jwt-go \
+		github.com/gorilla/securecookie
 COPY	api /go/src
 RUN	go build -a --installsuffix cgo --ldflags=-s -o bigdata4all
 

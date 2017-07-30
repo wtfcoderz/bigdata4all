@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/securecookie"
 	"golang.org/x/crypto/bcrypt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 type jsonUser struct {
@@ -24,6 +27,7 @@ type basicResponse struct {
 }
 
 var port string
+var secretKey string
 var redisDB *redis.Client
 
 func init() {
@@ -40,11 +44,15 @@ func main() {
 		DB:       0,
 	})
 
+	// Secret
+	secretKey = string(securecookie.GenerateRandomKey(32))
+
 	// Mux Router
 	r := mux.NewRouter()
 	r.HandleFunc("/user/register", handleUserRegister).Methods("Post")
 	r.HandleFunc("/user/auth", handleUserAuth).Methods("Post")
 	r.HandleFunc("/health", health)
+	r.HandleFunc("/data", handleData).Methods("Post")
 	r.HandleFunc("/", health)
 	http.Handle("/", r)
 
@@ -108,6 +116,32 @@ func handleUserRegister(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, string(jsonResponse))
 }
 
+func handleData(w http.ResponseWriter, req *http.Request) {
+	var response basicResponse
+	// Here we just verify that the user is authenticated
+	reqToken := req.Header.Get("X-Bigdata4all-Token")
+	token, err := jwt.Parse(reqToken, func(t *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+	if err == nil && token.Valid {
+		response = basicResponse{
+			Result: "success",
+			Msg:    "Valid token",
+		}
+	} else {
+		response = basicResponse{
+			Result: "failure",
+			Msg:    "Invalid token",
+		}
+	}
+	// Print response
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fmt.Fprintln(w, string(jsonResponse))
+}
+
 func handleUserAuth(w http.ResponseWriter, req *http.Request) {
 	bodyb, _ := ioutil.ReadAll(req.Body)
 	var user jsonUser
@@ -133,6 +167,17 @@ func handleUserAuth(w http.ResponseWriter, req *http.Request) {
 			}
 		} else {
 			// Good password
+			// Create JWT token
+			token := jwt.New(jwt.GetSigningMethod("HS256"))
+			claims := make(jwt.MapClaims)
+			claims["user"] = user.Email
+			claims["exp"] = time.Now().Add(time.Minute * 3600).Unix()
+			token.Claims = claims
+			tokenString, err := token.SignedString([]byte(secretKey))
+			if err != nil {
+				panic(err)
+			}
+			w.Header().Set("X-Bigdata4all-Token", tokenString)
 			response = basicResponse{
 				Result: "sucess",
 				Msg:    "Feel free to use token",
