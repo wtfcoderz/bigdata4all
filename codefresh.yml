@@ -17,6 +17,12 @@ steps:
     image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     tag: ${{CF_BRANCH_TAG_NORMALIZED}}
 
+  buildinttest:
+    type: build
+    image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    dockerfile: integration/Dockerfile
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}-inttest
+
   inttest:
     type: composition
     composition:
@@ -28,8 +34,8 @@ steps:
           image: redis:latest
     composition_candidates:
       test_service:
-        image: node:latest
-        command: sh -c "pwd && ls -ltr && cd /codefresh/volume/${{CF_REPO_NAME}}/integration && npm install && npm test"
+        image: ${{buildinttest}}
+        command: npm test
 
   push:
     type: push
