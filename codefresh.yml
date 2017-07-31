@@ -28,8 +28,8 @@ steps:
           image: redis:latest
     composition_candidates:
       test_service:
-        image: busybox
-        command: curl -v http://api/health
+        image: node:latest
+        command: sh -c "cd integration && npm install && npm test"
 
   push:
     type: push
