@@ -2,8 +2,7 @@ version: '1.0'
 
 steps:
 
-  test:
-    title: Testing
+  unittest:
     image: golang:1.8
     commands:
       # Need to have the source in the correct GOPATH folder - let's do that
@@ -17,6 +16,20 @@ steps:
     type: build
     image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
     tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+
+  inttest:
+    type: composition
+    composition:
+      version: '2'
+      services:
+        api:
+          image: ${{build}}
+        redis:
+          image: redis:latest
+    composition_candidates:
+      test_service:
+        image: busybox
+        command: curl -v http://api/health
 
   push:
     type: push
