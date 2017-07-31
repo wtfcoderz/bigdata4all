@@ -6,7 +6,8 @@ steps:
     title: Testing
     image: golang:1.8
     commands:
-      - GOPATH=$PWD go test -v api
+      - cp -pr api /go/src
+      - go test -v api
 
   build:
     type: build
