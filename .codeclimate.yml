@@ -1,5 +1,17 @@
 ---
 engines:
+  csslint:
+    enabled: true
+  duplication:
+    enabled: true
+    config:
+      languages:
+      - ruby
+      - javascript
+      - python
+      - php
+  eslint:
+    enabled: true
   fixme:
     enabled: true
   gofmt:
@@ -8,5 +20,16 @@ engines:
     enabled: true
 ratings:
   paths:
-   - "api/*.go"
-exclude_paths: []
+  - "**.css"
+  - "**.inc"
+  - "**.js"
+  - "**.jsx"
+  - "**.module"
+  - "**.php"
+  - "**.py"
+  - "**.rb"
+  - "**.go"
+exclude_paths:
+  - github.com
+  - golang.org
+  - integration/node_modules
