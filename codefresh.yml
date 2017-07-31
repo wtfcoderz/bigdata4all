@@ -6,9 +6,12 @@ steps:
     title: Testing
     image: golang:1.8
     commands:
-      - cp -pr api /go/src
-      - go get github.com/gorilla/mux github.com/go-redis/redis golang.org/x/crypto/bcrypt github.com/dgrijalva/jwt-go github.com/gorilla/securecookie
-      - go test -v api
+      # Need to have the source in the correct GOPATH folder - let's do that
+      - mkdir -p /go/src/github.com/${{CF_REPO_OWNER}}
+      - ln -s /codefresh/volume/${{CF_REPO_NAME}} /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+      # Install pre-requisites and execute tests
+      - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go get
+      - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go test -v
 
   build:
     type: build
