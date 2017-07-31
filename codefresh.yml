@@ -36,8 +36,6 @@ steps:
       test_service:
         image: ${{buildinttest}}
         command: npm test
-    composition_variables:
-    - API_URL=http://api
 
   push:
     type: push
