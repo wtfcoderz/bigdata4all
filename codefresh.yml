@@ -6,10 +6,7 @@ steps:
     title: Testing
     image: golang:1.8
     commands:
-      - pwd
-      - ls -ltr
-      - find . -ls
-      - go test -v api
+      - $GOPATH=$PWD go test -v api
 
   build:
     type: build
