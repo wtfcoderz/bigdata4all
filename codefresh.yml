@@ -7,6 +7,7 @@ steps:
     image: golang:1.8
     commands:
       - cp -pr api /go/src
+      - go get github.com/gorilla/mux github.com/go-redis/redis golang.org/x/crypto/bcrypt github.com/dgrijalva/jwt-go github.com/gorilla/securecookie
       - go test -v api
 
   build:
