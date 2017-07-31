@@ -6,7 +6,7 @@ steps:
     title: Testing
     image: golang:1.8
     commands:
-      go test -v api
+      - go test -v api
 
   build:
     type: build
