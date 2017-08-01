@@ -11,6 +11,8 @@ steps:
       # Install pre-requisites and execute tests
       - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go get
       - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go test -v
+      - find . -ls
+      - bash <(curl -s https://codecov.io/bash)
 
   build:
     type: build
