@@ -11,8 +11,8 @@ steps:
       # Install pre-requisites and execute tests
       - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go get
       - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go test -v -coverprofile=coverage.txt -covermode=atomic
-      - find . -ls
-      - curl -s https://codecov.io/bash | bash
+      - curl -s https://codecov.io/bash > codecov
+      - bash codecov -t ${{CODECOV_TOKEN}}
 
   build:
     type: build
