@@ -10,7 +10,7 @@ steps:
       - ln -s /codefresh/volume/${{CF_REPO_NAME}} /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
       # Install pre-requisites and execute tests
       - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go get
-      - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go test -v
+      - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go test -v -coverprofile=coverage.txt -covermode=atomic
       - find . -ls
       - curl -s https://codecov.io/bash | bash
 
