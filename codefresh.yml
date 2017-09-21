@@ -2,18 +2,48 @@ version: '1.0'
 
 steps:
 
+  unittest:
+    image: golang:1.8
+    commands:
+      # Need to have the source in the correct GOPATH folder - let's do that
+      - mkdir -p /go/src/github.com/${{CF_REPO_OWNER}}
+      - ln -s /codefresh/volume/${{CF_REPO_NAME}} /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+      # Install pre-requisites and execute tests
+      - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go get
+      - cd /go/src/github.com/${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}/api && go test -v -coverprofile=coverage.txt -covermode=atomic
+      #- curl -s https://codecov.io/bash > codecov
+      #- bash codecov -t ${{CODECOV_TOKEN}}
+
   build:
     type: build
     image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
+
+  buildinttest:
+    type: build
+    image_name: ${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+    dockerfile: integration/Dockerfile
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}-inttest
+
+  inttest:
+    type: composition
+    composition:
+      version: '2'
+      services:
+        api:
+          image: ${{build}}
+        redis:
+          image: redis:latest
+    composition_candidates:
+      test_service:
+        image: ${{buildinttest}}
+        command: npm test
 
   push:
     type: push
     candidate: ${{build}}
     registry: dockerhub
-    when:
-      branch:
-        only:
-          - master
+    tag: ${{CF_BRANCH_TAG_NORMALIZED}}
 
   deploy:
     type: launch-composition
