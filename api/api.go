@@ -63,6 +63,7 @@ func main() {
 
 func health(w http.ResponseWriter, req *http.Request) {
 	hostname, _ := os.Hostname()
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprintln(w, "Hostname:", hostname)
 }
 
@@ -113,6 +114,7 @@ func handleUserRegister(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprintln(w, string(jsonResponse))
 }
 
@@ -139,6 +141,7 @@ func handleData(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprintln(w, string(jsonResponse))
 }
 
@@ -225,5 +228,6 @@ func handleUserAuth(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprintln(w, string(jsonResponse))
 }
